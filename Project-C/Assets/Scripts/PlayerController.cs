@@ -22,10 +22,11 @@ public class PlayerController : NetworkBehaviour
 
     private void Update()
     {
-        if (SceneManager.GetActiveScene().name == "Farm")
+        if (SceneManager.GetActiveScene().name != "Farm")
         {
-            
-        
+            return;
+        }
+
         if (IsSpawned && !IsOwner)
         {
             return;
@@ -39,29 +40,28 @@ public class PlayerController : NetworkBehaviour
 
         Vector2 movement = Vector2.zero;
 
-        if (keyboard.leftArrowKey.isPressed)
+        if (keyboard.leftArrowKey.isPressed || keyboard.aKey.isPressed)
         {
             movement.x -= 1f;
         }
 
-        if (keyboard.rightArrowKey.isPressed)
+        if (keyboard.rightArrowKey.isPressed || keyboard.dKey.isPressed)
         {
             movement.x += 1f;
         }
 
-        if (keyboard.downArrowKey.isPressed)
+        if (keyboard.downArrowKey.isPressed || keyboard.sKey.isPressed)
         {
             movement.y -= 1f;
         }
 
-        if (keyboard.upArrowKey.isPressed)
+        if (keyboard.upArrowKey.isPressed || keyboard.wKey.isPressed)
         {
             movement.y += 1f;
         }
 
         transform.position += (Vector3)(movement.normalized * moveSpeed * Time.deltaTime);
         UpdateSprite(movement);
-        }
     }
 
     private void UpdateSprite(Vector2 movement)

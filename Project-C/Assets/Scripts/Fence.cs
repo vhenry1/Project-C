@@ -6,12 +6,12 @@ using UnityEngine;
 public class Fence : NetworkBehaviour
 {
     private Health health;
-    private SpriteRenderer sr;
+    private SpriteRenderer[] spriteRenderers;
 
     public override void OnNetworkSpawn()
     {
         health = GetComponent<Health>();
-        sr = GetComponent<SpriteRenderer>();
+        spriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
         if (IsServer) health.Died += OnDied;
     }
 
@@ -22,9 +22,13 @@ public class Fence : NetworkBehaviour
 
     private void Update()
     {
-        if (sr != null && health != null && IsSpawned)
+        if (spriteRenderers != null && health != null && IsSpawned)
         {
-            sr.color = Color.Lerp(new Color(1f, 0.4f, 0.4f), Color.white, health.Fraction);
+            Color tint = Color.Lerp(new Color(1f, 0.4f, 0.4f), Color.white, health.Fraction);
+            foreach (SpriteRenderer spriteRenderer in spriteRenderers)
+            {
+                if (spriteRenderer != null) spriteRenderer.color = tint;
+            }
         }
     }
 

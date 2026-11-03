@@ -103,17 +103,64 @@ public static class ProjectCSetup
         return prefab;
     }
 
-    private static Sprite FirstSprite(string folder, string nameContains)
+    [MenuItem("Project C/Refresh Cainos Fence Prefab")]
+    public static void RefreshCainosFencePrefab()
     {
-        foreach (string guid in AssetDatabase.FindAssets("t:Sprite " + nameContains, new[] { folder }))
+        GameObject fenceArt = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/Cainos/Pixel Art Platformer - Village Props/Prefab/PF Village Props - Fence A.prefab");
+        if (fenceArt == null)
         {
-            foreach (Object o in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)))
+            Debug.LogError("Project C: Cainos Fence A prefab was not found.");
+            return;
+        }
+
+        GameObject go = new GameObject("Fence");
+        GameObject visual = PrefabUtility.InstantiatePrefab(fenceArt) as GameObject;
+        if (visual == null)
+        {
+            Object.DestroyImmediate(go);
+            Debug.LogError("Project C: could not instantiate the Cainos Fence A prefab.");
+            return;
+        }
+
+        visual.transform.SetParent(go.transform, false);
+        visual.transform.localPosition = new Vector3(-1.3f, -0.2f, 0f);
+
+        BoxCollider2D collider = go.AddComponent<BoxCollider2D>();
+        collider.size = new Vector2(2.5f, 0.75f);
+        go.AddComponent<NetworkObject>();
+        Health health = go.AddComponent<Health>();
+        health.maxHealth = 20;
+        go.AddComponent<Fence>();
+
+        SavePrefab(go, "Assets/Resources/Fence.prefab");
+        AssetDatabase.SaveAssets();
+    }
+
+    private static Sprite LoadSprite(string path, string name)
+    {
+        foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(path))
+        {
+            Sprite sprite = asset as Sprite;
+            if (sprite != null && sprite.name == name) return sprite;
+        }
+        Debug.LogError("Project C: sprite '" + name + "' was not found in " + path + ".");
+        return null;
+    }
+
+    private static Sprite[] LoadSpriteSequence(string path, string namePrefix, int frameCount)
+    {
+        Sprite[] sprites = new Sprite[frameCount];
+        for (int i = 0; i < frameCount; i++)
+        {
+            sprites[i] = LoadSprite(path, namePrefix + i);
+            if (sprites[i] == null)
             {
-                Sprite s = o as Sprite;
-                if (s != null) return s;
+                Debug.LogError("Project C: missing sprite '" + namePrefix + i + "' in " + path + ".");
+                return new Sprite[0];
             }
         }
-        return null;
+        return sprites;
     }
 
     private static Sprite SolidSprite(string name, Color color, int size = 16)
@@ -143,11 +190,13 @@ public static class ProjectCSetup
 
     private static void CreatePrefabs()
     {
-        // Monster: a tinted placeholder you can replace with real art later.
+        // Monster: use the first frame of the bat attack animation.
         {
             GameObject go = new GameObject("Monster");
             SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SolidSprite("MonsterSprite", new Color(0.75f, 0.35f, 0.8f));
+            string attackPath = "Assets/Monsters Creatures Fantasy 2/Sprites/Bat/attack.png";
+            Sprite[] attackSprites = LoadSpriteSequence(attackPath, "attack_", 11);
+            sr.sprite = attackSprites.Length > 0 ? attackSprites[0] : null;
             sr.sortingOrder = 10;
             go.transform.localScale = Vector3.one * 1.2f;
             Rigidbody2D rb = go.AddComponent<Rigidbody2D>();
@@ -156,22 +205,19 @@ public static class ProjectCSetup
             go.AddComponent<NetworkObject>();
             NetworkTransform nt = go.AddComponent<NetworkTransform>();
             go.AddComponent<Health>();
-            go.AddComponent<Monster>();
+            Monster monster = go.AddComponent<Monster>();
+            SerializedObject monsterData = new SerializedObject(monster);
+            SerializedProperty animationSprites = monsterData.FindProperty("animationSprites");
+            animationSprites.arraySize = attackSprites.Length;
+            for (int i = 0; i < attackSprites.Length; i++)
+            {
+                animationSprites.GetArrayElementAtIndex(i).objectReferenceValue = attackSprites[i];
+            }
+            monsterData.ApplyModifiedPropertiesWithoutUndo();
             SavePrefab(go, "Assets/Resources/Monster.prefab");
         }
 
-        // Fence
-        {
-            GameObject go = new GameObject("Fence");
-            SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SolidSprite("FenceSprite", new Color(0.6f, 0.42f, 0.25f));
-            sr.sortingOrder = 5;
-            BoxCollider2D col = go.AddComponent<BoxCollider2D>(); col.size = new Vector2(1f, 1f);
-            go.AddComponent<NetworkObject>();
-            Health h = go.AddComponent<Health>(); h.maxHealth = 20;
-            go.AddComponent<Fence>();
-            SavePrefab(go, "Assets/Resources/Fence.prefab");
-        }
+        RefreshCainosFencePrefab();
 
         // Turret
         {
@@ -199,18 +245,27 @@ public static class ProjectCSetup
         // Crop plot (placed by hand in the Farm scene by SetupFarmScene)
         {
             GameObject go = new GameObject("CropPlot");
-            SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-            sr.sortingOrder = 2;
+            SpriteRenderer ground = go.AddComponent<SpriteRenderer>();
+            ground.sprite = SolidSprite("SoilSprite", new Color(0.45f, 0.3f, 0.2f));
+            ground.sortingOrder = 1;
+
+            GameObject visual = new GameObject("CropVisual");
+            visual.transform.SetParent(go.transform, false);
+            SpriteRenderer cropRenderer = visual.AddComponent<SpriteRenderer>();
+            cropRenderer.sortingOrder = 2;
+
             CircleCollider2D col = go.AddComponent<CircleCollider2D>(); col.isTrigger = true; col.radius = 0.5f;
             go.AddComponent<NetworkObject>();
             CropPlot plot = go.AddComponent<CropPlot>();
             plot.stageSprites = new[]
             {
-                SolidSprite("SoilSprite", new Color(0.45f, 0.3f, 0.2f)),
-                SolidSprite("Crop1Sprite", new Color(0.55f, 0.75f, 0.35f)),
-                SolidSprite("Crop2Sprite", new Color(0.4f, 0.8f, 0.3f)),
-                SolidSprite("CropRipeSprite", new Color(0.98f, 0.82f, 0.3f)),
+                LoadSprite("Assets/Cainos/Pixel Art Top Down - Basic/Texture/TX Plant.png", "TX Plant - Grass 12"),
+                LoadSprite("Assets/Cainos/Pixel Art Top Down - Basic/Texture/TX Plant.png", "TX Plant - Flower 01"),
+                LoadSprite("Assets/Cainos/Pixel Art Platformer - Village Props/Texture/TX Village Props.png", "TX Village Props - Wheat 01"),
             };
+            SerializedObject plotData = new SerializedObject(plot);
+            plotData.FindProperty("cropRenderer").objectReferenceValue = cropRenderer;
+            plotData.ApplyModifiedPropertiesWithoutUndo();
             SavePrefab(go, "Assets/Prefabs/CropPlot.prefab");
         }
         AssetDatabase.SaveAssets();

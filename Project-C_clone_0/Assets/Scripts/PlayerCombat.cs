@@ -13,6 +13,7 @@ public class PlayerCombat : NetworkBehaviour
     public float attackReach = 1.0f;
     public float attackRadius = 1.3f;
     public float cooldown = 0.45f;
+    [SerializeField] private Sprite[] fightingSprites;
 
     private SpriteRenderer sr;
     private Health health;
@@ -78,6 +79,8 @@ public class PlayerCombat : NetworkBehaviour
     {
         FX.Burst(center, new Color(1f, 1f, 0.8f), 5, 0.1f, 2f);
         AudioManager.Play("attack", 0.4f);
+        PlayerController controller = GetComponent<PlayerController>();
+        if (controller != null) controller.PlayAttackAnimation(fightingSprites);
     }
 
     [ClientRpc]

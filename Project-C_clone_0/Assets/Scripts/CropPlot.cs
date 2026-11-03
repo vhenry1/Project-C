@@ -11,15 +11,15 @@ public class CropPlot : NetworkBehaviour
 {
     public static readonly List<CropPlot> All = new List<CropPlot>();
 
-    public Sprite[] stageSprites;          // index 0 = soil ... last = ripe
+    public Sprite[] stageSprites;          // planted stages: grass, flower, ripe wheat
     public float secondsPerStage = 10f;
     public int baseHarvestValue = 10;
 
-    private SpriteRenderer spriteRenderer;
+    [SerializeField] private SpriteRenderer cropRenderer;
     private readonly NetworkVariable<int> stage = new NetworkVariable<int>(0);
     private float growTimer;
 
-    private int RipeStage { get { return stageSprites != null && stageSprites.Length > 0 ? stageSprites.Length - 1 : 0; } }
+    private int RipeStage { get { return stageSprites != null ? stageSprites.Length : 0; } }
     public int Stage { get { return stage.Value; } }
 
     public string Prompt
@@ -34,7 +34,13 @@ public class CropPlot : NetworkBehaviour
 
     private void Awake()
     {
-        spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        if (cropRenderer == null)
+        {
+            Transform visual = transform.Find("CropVisual");
+            if (visual != null) cropRenderer = visual.GetComponent<SpriteRenderer>();
+        }
+
+        if (cropRenderer == null) Debug.LogError("CropPlot requires a CropVisual SpriteRenderer.", this);
     }
 
     public override void OnNetworkSpawn()
@@ -116,8 +122,14 @@ public class CropPlot : NetworkBehaviour
 
     private void Refresh()
     {
-        if (spriteRenderer == null || stageSprites == null || stageSprites.Length == 0) return;
-        int i = Mathf.Clamp(stage.Value, 0, stageSprites.Length - 1);
-        spriteRenderer.sprite = stageSprites[i];
+        if (cropRenderer == null) return;
+        if (stage.Value <= 0 || stageSprites == null || stageSprites.Length == 0)
+        {
+            cropRenderer.sprite = null;
+            return;
+        }
+
+        int i = Mathf.Clamp(stage.Value - 1, 0, stageSprites.Length - 1);
+        cropRenderer.sprite = stageSprites[i];
     }
 }

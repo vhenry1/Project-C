@@ -3,7 +3,7 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Menu scene: Start, High Scores and Credits menus. Credits list every asset used.
+/// Menu scene: Start, High Scores and Credits menus.
 /// Built automatically by ProjectCRuntime, so nothing needs wiring in the scene.
 /// </summary>
 public class MenuSceneUI : MonoBehaviour
@@ -13,12 +13,12 @@ public class MenuSceneUI : MonoBehaviour
 
     private const string CreditsText =
         "<b>Game by Jenna</b> - Co-op Farm Defense\n\n" +
-        "<b>Pixel art:</b> Cainos - Pixel Art Top Down Basic and Village Props (Unity Asset Store)\n" +
-        "<b>Characters:</b> Clembod - Warrior free set (itch.io, free license)\n" +
-        "<b>Materials:</b> Shaded Spectrum - Free Realistic Outdoor Materials\n" +
-        "<b>Tools:</b> Unity Netcode for GameObjects, Unity Multiplayer Services, Unity Leaderboards, ParrelSync (VeriorPies)\n" +
-        "<b>Music and sound effects:</b> generated in code (AudioManager.cs)\n\n" +
-        "Code written for this project is commented. Netcode patterns follow the Unity documentation.";
+        "<b>Pixel art:</b> Cainos - Pixel Art Top Down - Basic; Pixel Art Platformer - Village Props\n" +
+        "<b>Player art:</b> Clembod - Warrior Free Set (itch.io; credit appreciated)\n" +
+        "<b>Monster art:</b> Monsters Creatures Fantasy 2 (Unity Asset Store)\n" +
+        "<b>Font:</b> Liberation Sans - Google and Red Hat (SIL Open Font License 1.1)\n" +
+        "<b>Music and sound effects:</b> generated in code for this game\n" +
+        "<b>Technology:</b> Unity, Netcode for GameObjects, Unity Multiplayer Services, Authentication, Leaderboards";
 
     private void Start()
     {

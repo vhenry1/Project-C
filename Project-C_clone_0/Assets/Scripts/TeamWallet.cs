@@ -7,8 +7,8 @@ using UnityEngine;
 /// </summary>
 public class TeamWallet : NetworkBehaviour
 {
-    private const int FencePerimeterColumns = 20;
-    private const int FencePerimeterRows = 10;
+    private const int FencePerimeterColumns = 8;
+    private const int FencePerimeterRows = 4;
     private const float FencePerimeterLeft = -8f;
     private const float FencePerimeterBottom = -4f;
     private const float FencePerimeterWidth = 20f;
@@ -118,9 +118,10 @@ public class TeamWallet : NetworkBehaviour
         if (prefab == null) return false;
 
         Vector3 p;
+        Quaternion rotation = Quaternion.identity;
         if (item.PrefabName == "Fence")
         {
-            if (!TryGetFencePerimeterPosition(out p)) return false;
+            if (!TryGetFencePerimeterPosition(out p, out rotation)) return false;
         }
         else
         {
@@ -130,41 +131,54 @@ public class TeamWallet : NetworkBehaviour
 
         if (!TrySpend(item.Money, item.Scrap)) return false;
 
-        GameObject go = Instantiate(prefab, p, Quaternion.identity);
+        GameObject go = Instantiate(prefab, p, rotation);
         go.GetComponent<NetworkObject>().Spawn(true);
         return true;
     }
 
-    private bool TryGetFencePerimeterPosition(out Vector3 position)
+    private bool TryGetFencePerimeterPosition(out Vector3 position, out Quaternion rotation)
     {
-        float stepX = FencePerimeterWidth / (FencePerimeterColumns - 1);
-        float stepY = FencePerimeterHeight / (FencePerimeterRows - 1);
+        float stepX = FencePerimeterWidth / FencePerimeterColumns;
+        float stepY = FencePerimeterHeight / FencePerimeterRows;
 
         for (int column = 0; column < FencePerimeterColumns; column++)
         {
-            Vector3 candidate = new Vector3(FencePerimeterLeft + column * stepX, FencePerimeterBottom, 0f);
-            if (TryGetUnoccupiedFencePosition(candidate, out position)) return true;
+            float x = FencePerimeterLeft + (column + 0.5f) * stepX;
+            Vector3 bottom = new Vector3(x, FencePerimeterBottom, 0f);
+            if (TryGetUnoccupiedFencePosition(bottom, out position))
+            {
+                rotation = Quaternion.identity;
+                return true;
+            }
+
+            Vector3 top = new Vector3(x, FencePerimeterBottom + FencePerimeterHeight, 0f);
+            if (TryGetUnoccupiedFencePosition(top, out position))
+            {
+                rotation = Quaternion.identity;
+                return true;
+            }
         }
 
-        for (int row = 1; row < FencePerimeterRows; row++)
+        for (int row = 0; row < FencePerimeterRows; row++)
         {
-            Vector3 candidate = new Vector3(FencePerimeterLeft + FencePerimeterWidth, FencePerimeterBottom + row * stepY, 0f);
-            if (TryGetUnoccupiedFencePosition(candidate, out position)) return true;
-        }
+            float y = FencePerimeterBottom + (row + 0.5f) * stepY;
+            Vector3 left = new Vector3(FencePerimeterLeft, y, 0f);
+            if (TryGetUnoccupiedFencePosition(left, out position))
+            {
+                rotation = Quaternion.Euler(0f, 0f, 90f);
+                return true;
+            }
 
-        for (int column = FencePerimeterColumns - 2; column >= 0; column--)
-        {
-            Vector3 candidate = new Vector3(FencePerimeterLeft + column * stepX, FencePerimeterBottom + FencePerimeterHeight, 0f);
-            if (TryGetUnoccupiedFencePosition(candidate, out position)) return true;
-        }
-
-        for (int row = FencePerimeterRows - 2; row > 0; row--)
-        {
-            Vector3 candidate = new Vector3(FencePerimeterLeft, FencePerimeterBottom + row * stepY, 0f);
-            if (TryGetUnoccupiedFencePosition(candidate, out position)) return true;
+            Vector3 right = new Vector3(FencePerimeterLeft + FencePerimeterWidth, y, 0f);
+            if (TryGetUnoccupiedFencePosition(right, out position))
+            {
+                rotation = Quaternion.Euler(0f, 0f, 90f);
+                return true;
+            }
         }
 
         position = Vector3.zero;
+        rotation = Quaternion.identity;
         return false;
     }
 

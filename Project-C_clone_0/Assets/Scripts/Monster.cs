@@ -18,21 +18,29 @@ public class Monster : NetworkBehaviour
     public float aggroRange = 9f;
     public int moneyReward = 5;
     public int scrapReward = 1;
+    [SerializeField] private Sprite[] animationSprites;
+    [SerializeField] private float animationFrameDuration = 0.08f;
 
     private Health health;
+    private SpriteRenderer spriteRenderer;
     private Rigidbody2D rb;
+    private Collider2D[] colliders;
     private float nextHit;
     private float nextFenceHit;
+    private float animationStartTime;
 
     private void Awake()
     {
         health = GetComponent<Health>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
         rb = GetComponent<Rigidbody2D>();
+        colliders = GetComponentsInChildren<Collider2D>(true);
     }
 
     public override void OnNetworkSpawn()
     {
         All.Add(this);
+        animationStartTime = Time.time;
         if (!IsServer)
         {
             // Clients just display the position the host sends.
@@ -42,10 +50,23 @@ public class Monster : NetworkBehaviour
         health.Died += OnDied;
     }
 
+    private void Update()
+    {
+        if (!IsSpawned || spriteRenderer == null || animationSprites == null ||
+            animationSprites.Length == 0 || animationFrameDuration <= 0f) return;
+
+        int frame = Mathf.FloorToInt((Time.time - animationStartTime) / animationFrameDuration) % animationSprites.Length;
+        if (animationSprites[frame] != null && spriteRenderer.sprite != animationSprites[frame])
+        {
+            spriteRenderer.sprite = animationSprites[frame];
+        }
+    }
+
     public override void OnNetworkDespawn()
     {
         All.Remove(this);
         if (IsServer && health != null) health.Died -= OnDied;
+        StopPhysics();
     }
 
     public void Hurt(int amount)
@@ -121,8 +142,24 @@ public class Monster : NetworkBehaviour
     private void OnDied(Health h)
     {
         if (TeamWallet.Instance != null) TeamWallet.Instance.Add(moneyReward, scrapReward);
+        StopPhysics();
         DeathFxClientRpc(transform.position);
         NetworkObject.Despawn(true);
+    }
+
+    private void StopPhysics()
+    {
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+            rb.simulated = false;
+        }
+
+        foreach (Collider2D monsterCollider in colliders)
+        {
+            if (monsterCollider != null) monsterCollider.enabled = false;
+        }
     }
 
     [ClientRpc]

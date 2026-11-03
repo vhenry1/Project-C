@@ -20,6 +20,9 @@ public class PlayerController : NetworkBehaviour
     private Health health;
     private int walkingSpriteIndex;
     private float spriteTimer;
+    private Sprite[] attackSprites;
+    private float attackAnimationStart;
+    private const float AttackFrameDuration = 0.05f;
 
     // Owner writes, everyone reads, so remote players animate correctly.
     private readonly NetworkVariable<bool> facingLeft = new NetworkVariable<bool>(
@@ -89,6 +92,20 @@ public class PlayerController : NetworkBehaviour
             spriteRenderer.flipX = movement.x < 0f;
         }
 
+        if (attackSprites != null)
+        {
+            float elapsed = Time.time - attackAnimationStart;
+            float duration = attackSprites.Length * AttackFrameDuration;
+            if (elapsed < duration)
+            {
+                int frame = Mathf.Min(Mathf.FloorToInt(elapsed / AttackFrameDuration), attackSprites.Length - 1);
+                spriteRenderer.sprite = attackSprites[frame];
+                return;
+            }
+
+            attackSprites = null;
+        }
+
         if (movement.sqrMagnitude == 0f)
         {
             walkingSpriteIndex = 0;
@@ -123,5 +140,12 @@ public class PlayerController : NetworkBehaviour
         }
 
         spriteRenderer.sprite = walkingSprites[walkingSpriteIndex];
+    }
+
+    public void PlayAttackAnimation(Sprite[] sprites)
+    {
+        if (sprites == null || sprites.Length == 0) return;
+        attackSprites = sprites;
+        attackAnimationStart = Time.time;
     }
 }

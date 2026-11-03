@@ -2,28 +2,13 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+/// <summary>
+/// Replaces your original LobbyHostStarter. It no longer starts a host automatically,
+/// because LobbyUI now lets the player choose: host online (room code), solo/LAN host, or join.
+/// startFarm() is still here and is called by the lobby's Start Farm button (host only).
+/// </summary>
 public class LobbyHostStarter : MonoBehaviour
 {
-    private void Start()
-    {
-        NetworkManager networkManager = NetworkManager.Singleton;
-        if (networkManager == null)
-        {
-            Debug.LogError("Cannot start the lobby host: no NetworkManager exists in the Lobby scene.");
-            return;
-        }
-
-        if (networkManager.IsListening)
-        {
-            return;
-        }
-
-        if (!networkManager.StartHost())
-        {
-            Debug.LogError("Failed to start the lobby host. Check the NetworkManager and transport configuration.");
-        }
-    }
-
     public void startFarm()
     {
         NetworkManager networkManager = NetworkManager.Singleton;
@@ -39,11 +24,11 @@ public class LobbyHostStarter : MonoBehaviour
             return;
         }
 
-        Unity.Netcode.SceneEventProgressStatus status =
+        SceneEventProgressStatus status =
             networkManager.SceneManager.LoadScene("Farm", LoadSceneMode.Single);
-        if (status != Unity.Netcode.SceneEventProgressStatus.Started)
+        if (status != SceneEventProgressStatus.Started)
         {
-            Debug.LogError($"Failed to start the networked Farm scene load: {status}.");
+            Debug.LogError("Failed to start the networked Farm scene load: " + status);
         }
     }
 }

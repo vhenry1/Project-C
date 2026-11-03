@@ -1,40 +1,63 @@
+using Unity.Netcode;
 using UnityEngine;
 
-public class TimeController : MonoBehaviour
+/// <summary>
+/// Networked day/night clock. Only the host advances time; everyone else reads the phase,
+/// the night count and the phase end time. Replaces your original TimeController.
+/// Lives on the FarmManagers prefab (spawned by ProjectCRuntime when the Farm loads).
+/// </summary>
+public class TimeController : NetworkBehaviour
 {
-    public int NightDuration = 300; // Duration of night in seconds
-    public int DayDuration = 300; // Duration of day in seconds
+    public static TimeController Instance { get; private set; }
 
-    public int NightsSurvived { get; private set; } = 0;
+    public float DayDuration = 95f;
+    public float NightDuration = 70f;
 
-    public GameObject SkyDay;
-    public GameObject SkyNight;
+    public NetworkVariable<bool> IsNight = new NetworkVariable<bool>(false);
+    public NetworkVariable<int> NightsSurvived = new NetworkVariable<int>(0);
+    public NetworkVariable<double> PhaseEndTime = new NetworkVariable<double>(0d);
 
-    public bool IsNight { get; private set; } = false;
+    [HideInInspector] public bool Running = true;
 
-    private float timeElapsed = 0f;
-
-    public void UpdateTime(float deltaTime)
+    public float PhaseTimeRemaining
     {
-        timeElapsed += deltaTime;
+        get { return Mathf.Max(0f, (float)(PhaseEndTime.Value - NetworkManager.ServerTime.Time)); }
+    }
 
-        if (IsNight && timeElapsed >= NightDuration)
+    public override void OnNetworkSpawn()
+    {
+        Instance = this;
+        if (!IsServer) return;
+
+        DayDuration = GameSettings.DayLength;
+        NightDuration = GameSettings.NightLength;
+        IsNight.Value = false;
+        NightsSurvived.Value = 0;
+        PhaseEndTime.Value = NetworkManager.ServerTime.Time + DayDuration;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        if (Instance == this) Instance = null;
+    }
+
+    private void Update()
+    {
+        if (!IsServer || !Running) return;
+
+        double now = NetworkManager.ServerTime.Time;
+        if (now < PhaseEndTime.Value) return;
+
+        if (IsNight.Value)
         {
-            // Transition to day
-            IsNight = false;
-            timeElapsed = 0f;
-            NightsSurvived++;
-            SkyDay.SetActive(true);
-            SkyNight.SetActive(false);
+            NightsSurvived.Value++;
+            IsNight.Value = false;
+            PhaseEndTime.Value = now + DayDuration;
         }
-        else if (!IsNight && timeElapsed >= DayDuration)
+        else
         {
-            // Transition to night
-            IsNight = true;
-            timeElapsed = 0f;
-            SkyDay.SetActive(false);
-            SkyNight.SetActive(true);
+            IsNight.Value = true;
+            PhaseEndTime.Value = now + NightDuration;
         }
     }
-    
 }

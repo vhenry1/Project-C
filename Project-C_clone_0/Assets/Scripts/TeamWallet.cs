@@ -13,6 +13,7 @@ public class TeamWallet : NetworkBehaviour
     private const float FencePerimeterBottom = -4f;
     private const float FencePerimeterWidth = 20f;
     private const float FencePerimeterHeight = 10f;
+    private const float TurretPerimeterInset = 1f;
 
     public static TeamWallet Instance { get; private set; }
 
@@ -123,6 +124,14 @@ public class TeamWallet : NetworkBehaviour
         {
             if (!TryGetFencePerimeterPosition(out p, out rotation)) return false;
         }
+        else if (item.PrefabName == "Turret")
+        {
+            if (!TryGetTurretPerimeterPosition(out p)) return false;
+        }
+        else if (item.PrefabName == "Scarecrow")
+        {
+            p = Vector3.zero;
+        }
         else
         {
             p = client.PlayerObject.transform.position + new Vector3(Mathf.Sign(facing) * 1.5f, -0.3f, 0f);
@@ -134,6 +143,43 @@ public class TeamWallet : NetworkBehaviour
         GameObject go = Instantiate(prefab, p, rotation);
         go.GetComponent<NetworkObject>().Spawn(true);
         return true;
+    }
+
+    private static bool TryGetTurretPerimeterPosition(out Vector3 position)
+    {
+        float left = FencePerimeterLeft + TurretPerimeterInset;
+        float right = FencePerimeterLeft + FencePerimeterWidth - TurretPerimeterInset;
+        float bottom = FencePerimeterBottom + TurretPerimeterInset;
+        float top = FencePerimeterBottom + FencePerimeterHeight - TurretPerimeterInset;
+        Vector3[] corners =
+        {
+            new Vector3(left, bottom, 0f),
+            new Vector3(right, bottom, 0f),
+            new Vector3(right, top, 0f),
+            new Vector3(left, top, 0f)
+        };
+        foreach (Vector3 candidate in corners)
+        {
+            if (!IsTurretPositionOccupied(candidate))
+            {
+                position = candidate;
+                return true;
+            }
+        }
+
+        position = Vector3.zero;
+        return false;
+    }
+
+    private static bool IsTurretPositionOccupied(Vector3 candidate)
+    {
+        foreach (Turret turret in FindObjectsByType<Turret>(FindObjectsSortMode.None))
+        {
+            if (turret != null && Vector2.Distance(turret.transform.position, candidate) < 1f)
+                return true;
+        }
+
+        return false;
     }
 
     private bool TryGetFencePerimeterPosition(out Vector3 position, out Quaternion rotation)
@@ -201,6 +247,7 @@ public class TeamWallet : NetworkBehaviour
     {
         if (prefabName == "Fence") return FindObjectsByType<Fence>(FindObjectsSortMode.None).Length;
         if (prefabName == "Turret") return FindObjectsByType<Turret>(FindObjectsSortMode.None).Length;
+        if (prefabName == "Scarecrow") return FindObjectsByType<Scarecrow>(FindObjectsSortMode.None).Length;
         return 0;
     }
 

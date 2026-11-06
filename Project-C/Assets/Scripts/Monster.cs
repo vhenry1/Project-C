@@ -13,7 +13,7 @@ public class Monster : NetworkBehaviour
     public static readonly List<Monster> All = new List<Monster>();
 
     public float speed = 2.2f;
-    public int contactDamage = 1;
+    public int contactDamage = 2;
     public float attackInterval = 1f;
     public float aggroRange = 9f;
     public int moneyReward = 5;
@@ -25,9 +25,11 @@ public class Monster : NetworkBehaviour
     private SpriteRenderer spriteRenderer;
     private Rigidbody2D rb;
     private Collider2D[] colliders;
+    private readonly List<Collider2D> playerColliderBuffer = new List<Collider2D>();
     private float nextHit;
     private float nextFenceHit;
     private float animationStartTime;
+    private float scaredUntil;
 
     private void Awake()
     {
@@ -41,6 +43,8 @@ public class Monster : NetworkBehaviour
     {
         All.Add(this);
         animationStartTime = Time.time;
+        health.Current.OnValueChanged += OnHealthChanged;
+        if (health.IsDead) StopPhysics();
         if (!IsServer)
         {
             // Clients just display the position the host sends.
@@ -48,6 +52,7 @@ public class Monster : NetworkBehaviour
             return;
         }
         health.Died += OnDied;
+        IgnorePlayerCollisions();
     }
 
     private void Update()
@@ -65,6 +70,7 @@ public class Monster : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         All.Remove(this);
+        if (health != null) health.Current.OnValueChanged -= OnHealthChanged;
         if (IsServer && health != null) health.Died -= OnDied;
         StopPhysics();
     }
@@ -79,7 +85,24 @@ public class Monster : NetworkBehaviour
     {
         if (!IsServer || health.IsDead || rb == null) return;
 
+        IgnorePlayerCollisions();
+
         Vector2 pos = rb.position;
+        Scarecrow scarecrow = Scarecrow.Active;
+        if (scarecrow != null && scarecrow.IsSpawned)
+        {
+            Vector2 away = pos - (Vector2)scarecrow.transform.position;
+            if (Time.time >= scaredUntil && away.sqrMagnitude <= Scarecrow.EncounterRadius * Scarecrow.EncounterRadius)
+                scaredUntil = Time.time + Scarecrow.FearDuration;
+
+            if (Time.time < scaredUntil)
+            {
+                if (away.sqrMagnitude < 0.0001f) away = Vector2.right;
+                rb.linearVelocity = away.normalized * speed;
+                return;
+            }
+        }
+
         Health targetPlayer = NearestPlayer(pos, aggroRange);
         CropPlot targetCrop = targetPlayer == null ? NearestCrop(pos) : null;
 
@@ -108,6 +131,30 @@ public class Monster : NetworkBehaviour
         {
             nextFenceHit = Time.time + 1f;
             fence.GetComponent<Health>().TakeDamage(contactDamage * 2);
+        }
+    }
+
+    private void IgnorePlayerCollisions()
+    {
+        foreach (NetworkClient client in NetworkManager.ConnectedClientsList)
+        {
+            if (client.PlayerObject == null) continue;
+
+            playerColliderBuffer.Clear();
+            client.PlayerObject.GetComponentsInChildren(playerColliderBuffer);
+            foreach (Collider2D monsterCollider in colliders)
+            {
+                if (monsterCollider == null || !monsterCollider.enabled) continue;
+
+                foreach (Collider2D playerCollider in playerColliderBuffer)
+                {
+                    if (playerCollider != null && playerCollider.enabled &&
+                        !Physics2D.GetIgnoreCollision(monsterCollider, playerCollider))
+                    {
+                        Physics2D.IgnoreCollision(monsterCollider, playerCollider, true);
+                    }
+                }
+            }
         }
     }
 
@@ -147,6 +194,11 @@ public class Monster : NetworkBehaviour
         NetworkObject.Despawn(true);
     }
 
+    private void OnHealthChanged(int previous, int current)
+    {
+        if (current <= 0) StopPhysics();
+    }
+
     private void StopPhysics()
     {
         if (rb != null)
@@ -156,6 +208,7 @@ public class Monster : NetworkBehaviour
             rb.simulated = false;
         }
 
+        if (colliders == null) return;
         foreach (Collider2D monsterCollider in colliders)
         {
             if (monsterCollider != null) monsterCollider.enabled = false;

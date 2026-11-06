@@ -41,8 +41,9 @@ public static class Catalog
 
     public static readonly CraftItem[] Craft =
     {
-        new CraftItem { Id = 0, Name = "Fence",  Desc = "Blocks monsters until they chew through it", Money = 0,  Scrap = 2, PrefabName = "Fence",  MaxInWorld = 24 },
-        new CraftItem { Id = 1, Name = "Turret", Desc = "Auto-shoots nearby monsters",                Money = 25, Scrap = 6, PrefabName = "Turret", MaxInWorld = 6 },
+        new CraftItem { Id = 0, Name = "Fence",  Desc = "Blocks monsters until they chew through it", Money = 0,  Scrap = 2, PrefabName = "Fence",  MaxInWorld = 50 },
+        new CraftItem { Id = 1, Name = "Turret", Desc = "Auto-shoots nearby monsters",                Money = 25, Scrap = 6, PrefabName = "Turret", MaxInWorld = 4 },
+        new CraftItem { Id = 2, Name = "Scarecrow", Desc = "Scares each nearby monster away for 10 seconds", Money = 15, Scrap = 4, PrefabName = "Scarecrow", MaxInWorld = 1 },
     };
 
     public static int ShopPrice(ShopItem item, int level)

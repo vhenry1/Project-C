@@ -128,6 +128,7 @@ public class ProjectCRuntime : MonoBehaviour
         DespawnAll<Monster>();
         DespawnAll<Fence>();
         DespawnAll<Turret>();
+        DespawnAll<Scarecrow>();
 
         foreach (NetworkClient c in nm.ConnectedClientsList)
         {

@@ -4,9 +4,9 @@ using UnityEngine;
 /// <summary>Crafted defense. Host-only logic: shoots the nearest monster in range.</summary>
 public class Turret : NetworkBehaviour
 {
-    public float range = 6f;
-    public float interval = 0.9f;
-    public int damage = 2;
+    public float range = 0.25f;
+    public float interval = 10f;
+    public int damage = 1;
 
     private float next;
 

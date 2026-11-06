@@ -17,7 +17,7 @@ public class FarmUI : MonoBehaviour
     public static bool Blocking { get; private set; }
 
     private Canvas canvas;
-    private GameObject pause, shop, craft, gameOver;
+    private GameObject pause, shop, craft, gameOver, victory;
     private RectTransform shopContent, craftContent;
     private TMP_Text moneyText, scrapText, nightText, timerText, promptText, toastText, goalText, shopMoney, craftMoney, overTitle, overHint;
     private Image healthFill, nightTint;
@@ -30,6 +30,7 @@ public class FarmUI : MonoBehaviour
     private bool lastNight, phaseKnown;
     private string shopSig = "", craftSig = "";
     private bool scoreSaved;
+    private bool goalPromptDismissed;
 
     private void Awake()
     {
@@ -52,6 +53,7 @@ public class FarmUI : MonoBehaviour
         BuildShop();
         BuildCraft();
         BuildGameOver();
+        BuildVictory();
     }
 
     // ------------------------------------------------------------ HUD
@@ -177,6 +179,30 @@ public class FarmUI : MonoBehaviour
         gameOver.SetActive(false);
     }
 
+    private void BuildVictory()
+    {
+        RectTransform c = UIKit.MakePanel(canvas.transform, "You Win!", new Vector2(640, 380), out victory);
+        TMP_Text message = UIKit.Label(c, "You survived " + GameSettings.GoalNights +
+            " nights!\nWhat would you like to do?", 30, UIKit.Ink);
+        message.rectTransform.sizeDelta = new Vector2(560, 110);
+        UIKit.MakeButton(c, "Finish & Join Leaderboard", UIKit.Gold, FinishRun, new Vector2(420, 60));
+        UIKit.MakeButton(c, "Keep Playing", UIKit.Green, KeepPlaying, new Vector2(320, 60));
+        victory.SetActive(false);
+    }
+
+    private void FinishRun()
+    {
+        GameManager manager = GameManager.Instance;
+        if (manager != null) manager.FinishRunServerRpc();
+    }
+
+    private void KeepPlaying()
+    {
+        goalPromptDismissed = true;
+        victory.SetActive(false);
+        UpdateBlocking();
+    }
+
     private async void SubmitScore()
     {
         if (scoreSaved) return;
@@ -187,10 +213,20 @@ public class FarmUI : MonoBehaviour
         HighScores.AddLocal(n, nights);
         overHint.text = "Saved to this computer.";
 
-        if (SessionManager.Instance != null && await SessionManager.Instance.InitAsync())
+        SessionManager sessionManager = SessionManager.Instance;
+        if (sessionManager != null && await sessionManager.InitAsync())
         {
-            await HighScores.SubmitGlobalAsync(n, nights);
-            if (this != null && overHint != null) overHint.text = "Saved locally and to the global board.";
+            bool uploaded = await HighScores.SubmitGlobalAsync(n, nights);
+            if (this != null && overHint != null)
+                overHint.text = uploaded ? "Saved locally and to the global board."
+                    : "Saved locally; global upload failed: " + HighScores.LastError;
+        }
+        else if (this != null && overHint != null)
+        {
+            string error = sessionManager != null && !string.IsNullOrEmpty(sessionManager.LastError)
+                ? sessionManager.LastError
+                : "Unity Gaming Services could not initialize.";
+            overHint.text = "Saved locally; global service unavailable: " + error;
         }
     }
 
@@ -200,8 +236,13 @@ public class FarmUI : MonoBehaviour
     private void SetOpen(GameObject panel, bool open)
     {
         panel.SetActive(open);
-        Blocking = pause.activeSelf || shop.activeSelf || craft.activeSelf || gameOver.activeSelf;
+        UpdateBlocking();
         if (open) PlayerInteractor.CurrentPrompt = "";
+    }
+
+    private void UpdateBlocking()
+    {
+        Blocking = pause.activeSelf || shop.activeSelf || craft.activeSelf || gameOver.activeSelf || victory.activeSelf;
     }
 
     // ------------------------------------------------------------ Update
@@ -214,7 +255,7 @@ public class FarmUI : MonoBehaviour
         UpdateMenus();
 
         Keyboard kb = Keyboard.current;
-        if (kb != null && kb.escapeKey.wasPressedThisFrame && !gameOver.activeSelf)
+        if (kb != null && kb.escapeKey.wasPressedThisFrame && !gameOver.activeSelf && !victory.activeSelf)
         {
             if (shop.activeSelf) SetOpen(shop, false);
             else if (craft.activeSelf) SetOpen(craft, false);
@@ -222,16 +263,26 @@ public class FarmUI : MonoBehaviour
         }
 
         bool over = GameManager.IsOver;
-        if (over && !gameOver.activeSelf)
+        GameManager manager = GameManager.Instance;
+        bool goalReached = manager != null && manager.GoalReached.Value;
+        if (goalReached && !goalPromptDismissed && !over && !victory.activeSelf)
         {
             pause.SetActive(false); shop.SetActive(false); craft.SetActive(false);
+            SetOpen(victory, true);
+        }
+
+        if (over && !gameOver.activeSelf)
+        {
+            pause.SetActive(false); shop.SetActive(false); craft.SetActive(false); victory.SetActive(false);
             SetOpen(gameOver, true);
             int nights = GameManager.Instance.FinalNights.Value;
-            overTitle.text = "The farm has fallen.\nYou survived " + nights + (nights == 1 ? " night." : " nights.");
+            bool won = nights >= GameSettings.GoalNights;
+            overTitle.text = (won ? "You win!\nYou survived " : "The farm has fallen.\nYou survived ") +
+                nights + (nights == 1 ? " night." : " nights.");
             scoreSaved = false;
             submitButton.interactable = true;
-            overHint.text = nights >= GameSettings.GoalNights ? "You reached the goal! Add your name to the board." : "Add your name to the high score board.";
-            AudioManager.Play("down", 0.7f);
+            overHint.text = won ? "Add your name to join the leaderboard." : "Add your name to the high score board.";
+            AudioManager.Play(won ? "dawn" : "down", 0.7f);
         }
         if (gameOver.activeSelf)
         {

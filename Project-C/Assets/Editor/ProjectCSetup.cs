@@ -11,7 +11,7 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// One-click setup: Project C > Run Full Setup.
-/// Creates the Monster / Fence / Turret / FarmManagers prefabs (in Assets/Resources),
+/// Creates the Monster / Fence / Turret / Scarecrow / FarmManagers prefabs (in Assets/Resources),
 /// registers them as network prefabs, adds the new components to the Player prefab,
 /// adds crop plots, a shop and a crafting bench to the Farm scene, sets up the Pixel Perfect Camera,
 /// and fixes sprite import settings (Point filter, no compression).
@@ -219,11 +219,40 @@ public static class ProjectCSetup
 
         RefreshCainosFencePrefab();
 
+        // Build the networked scarecrow prefab from the Cainos scarecrow art.
+        {
+            GameObject scarecrowArt = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Cainos/Pixel Art Platformer - Village Props/Prefab/PF Village Props - Scarecrow 01.prefab");
+            if (scarecrowArt == null)
+            {
+                Debug.LogError("Project C: Cainos Scarecrow prefab was not found.");
+            }
+            else
+            {
+                GameObject go = new GameObject("Scarecrow");
+                GameObject visual = PrefabUtility.InstantiatePrefab(scarecrowArt) as GameObject;
+                if (visual == null)
+                {
+                    Object.DestroyImmediate(go);
+                    Debug.LogError("Project C: could not instantiate the Cainos Scarecrow prefab.");
+                }
+                else
+                {
+                    visual.transform.SetParent(go.transform, false);
+                    SpriteRenderer visualRenderer = visual.GetComponent<SpriteRenderer>();
+                    if (visualRenderer != null) visualRenderer.sortingOrder = 6;
+                    go.AddComponent<NetworkObject>();
+                    go.AddComponent<Scarecrow>();
+                    SavePrefab(go, "Assets/Resources/Scarecrow.prefab");
+                }
+            }
+        }
+
         // Turret
         {
             GameObject go = new GameObject("Turret");
             SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SolidSprite("TurretSprite", new Color(0.45f, 0.55f, 0.7f));
+            sr.sprite = LoadSprite("Assets/Cainos/Pixel Art Top Down - Basic/Texture/TX Props.png", "TX Props Rune Pillar X2");
             sr.sortingOrder = 6;
             BoxCollider2D col = go.AddComponent<BoxCollider2D>(); col.size = new Vector2(1f, 1f);
             go.AddComponent<NetworkObject>();
@@ -306,7 +335,7 @@ public static class ProjectCSetup
         string[] paths =
         {
             "Assets/Resources/Monster.prefab", "Assets/Resources/Fence.prefab", "Assets/Resources/Turret.prefab",
-            "Assets/Resources/FarmManagers.prefab", "Assets/Prefabs/CropPlot.prefab",
+            "Assets/Resources/Scarecrow.prefab", "Assets/Resources/FarmManagers.prefab", "Assets/Prefabs/CropPlot.prefab",
         };
         foreach (string p in paths)
         {

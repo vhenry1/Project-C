@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Win/lose rules. The team loses when every player is down at the same time.
-/// Score = nights survived. At the MVP goal (5 nights) everyone gets a message and play continues.
+/// Reaching the MVP goal (5 nights) lets players finish the run or keep playing.
 /// </summary>
 public class GameManager : NetworkBehaviour
 {
@@ -12,13 +12,16 @@ public class GameManager : NetworkBehaviour
 
     public NetworkVariable<bool> Over = new NetworkVariable<bool>(false);
     public NetworkVariable<int> FinalNights = new NetworkVariable<int>(0);
-
-    private bool goalAnnounced;
+    public NetworkVariable<bool> GoalReached = new NetworkVariable<bool>(false);
 
     public override void OnNetworkSpawn()
     {
         Instance = this;
-        if (IsServer) Over.Value = false;
+        if (IsServer)
+        {
+            Over.Value = false;
+            GoalReached.Value = false;
+        }
     }
 
     public override void OnNetworkDespawn()
@@ -32,11 +35,8 @@ public class GameManager : NetworkBehaviour
         TimeController time = TimeController.Instance;
         if (time == null) return;
 
-        if (!goalAnnounced && time.NightsSurvived.Value >= GameSettings.GoalNights)
-        {
-            goalAnnounced = true;
-            GoalClientRpc(GameSettings.GoalNights);
-        }
+        if (!GoalReached.Value && time.NightsSurvived.Value >= GameSettings.GoalNights)
+            GoalReached.Value = true;
 
         bool anyPlayer = false;
         bool anyAlive = false;
@@ -63,6 +63,15 @@ public class GameManager : NetworkBehaviour
         }
     }
 
+    [ServerRpc(RequireOwnership = false)]
+    public void FinishRunServerRpc()
+    {
+        if (Over.Value || !GoalReached.Value) return;
+
+        TimeController time = TimeController.Instance;
+        if (time != null) EndGame(time);
+    }
+
     // Called by MonsterSpawner when the sun comes up.
     public void OnDawn()
     {
@@ -84,10 +93,4 @@ public class GameManager : NetworkBehaviour
         if (FarmUI.Instance != null) FarmUI.Instance.Toast("Dawn breaks. Everyone recovers a little.");
     }
 
-    [ClientRpc]
-    private void GoalClientRpc(int nights)
-    {
-        if (FarmUI.Instance != null)
-            FarmUI.Instance.Toast("Goal reached: " + nights + " nights survived! Keep going for a high score.", 5f);
-    }
 }

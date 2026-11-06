@@ -8,10 +8,10 @@ using UnityEngine;
 /// </summary>
 public class Health : NetworkBehaviour
 {
-    public int maxHealth = 10;
+    public int maxHealth = 20;
 
-    public NetworkVariable<int> Current = new NetworkVariable<int>(10);
-    public NetworkVariable<int> Max = new NetworkVariable<int>(10);
+    public NetworkVariable<int> Current = new NetworkVariable<int>(20);
+    public NetworkVariable<int> Max = new NetworkVariable<int>(20);
 
     public event Action<Health> Died;     // host only
     public event Action<Health> Revived;  // host only

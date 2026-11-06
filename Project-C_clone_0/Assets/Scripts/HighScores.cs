@@ -29,6 +29,8 @@ public static class HighScores
     private const string Key = "projectc_highscores";
     private const int MaxEntries = 10;
 
+    public static string LastError { get; private set; } = "";
+
     public static List<ScoreEntry> Local()
     {
         string json = PlayerPrefs.GetString(Key, "");
@@ -54,26 +56,40 @@ public static class HighScores
         PlayerPrefs.Save();
     }
 
-    public static async Task SubmitGlobalAsync(string name, int nights)
+    public static async Task<bool> SubmitGlobalAsync(string name, int nights)
     {
-        if (!SessionManager.Ready) return;
+        if (!SessionManager.Ready)
+        {
+            LastError = "Unity Gaming Services is not initialized.";
+            return false;
+        }
+
         try
         {
             string safe = name.Replace(' ', '_');
             if (safe.Length < 3) safe = safe.PadRight(3, '_');
             await AuthenticationService.Instance.UpdatePlayerNameAsync(safe);
             await LeaderboardsService.Instance.AddPlayerScoreAsync(LeaderboardId, nights);
+            LastError = "";
+            return true;
         }
         catch (Exception e)
         {
-            Debug.LogWarning("Global score upload failed: " + e.Message);
+            LastError = DescribeGlobalError(e);
+            Debug.LogWarning("Global score upload failed: " + LastError);
+            return false;
         }
     }
 
     public static async Task<List<ScoreEntry>> GlobalAsync()
     {
         var result = new List<ScoreEntry>();
-        if (!SessionManager.Ready) return result;
+        if (!SessionManager.Ready)
+        {
+            LastError = "Unity Gaming Services is not initialized.";
+            return result;
+        }
+
         try
         {
             var page = await LeaderboardsService.Instance.GetScoresAsync(
@@ -85,11 +101,23 @@ public static class HighScores
                 if (hash > 0) n = n.Substring(0, hash);
                 result.Add(new ScoreEntry { name = n, nights = (int)r.Score });
             }
+            LastError = "";
         }
         catch (Exception e)
         {
-            Debug.LogWarning("Could not load global scores: " + e.Message);
+            LastError = DescribeGlobalError(e);
+            Debug.LogWarning("Could not load global scores: " + LastError);
         }
         return result;
+    }
+
+    private static string DescribeGlobalError(Exception e)
+    {
+        if (e.Message.IndexOf("Leaderboard config could not be found", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return "Create a Unity Cloud leaderboard with ID '" + LeaderboardId + "'.";
+        }
+
+        return e.Message;
     }
 }

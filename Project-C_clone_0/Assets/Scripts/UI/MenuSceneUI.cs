@@ -54,11 +54,18 @@ public class MenuSceneUI : MonoBehaviour
         TMP_Text status = UIKit.Label(scoreContent, "Loading global scores...", 22, UIKit.Ink, TextAlignmentOptions.Center, FontStyles.Italic);
         status.rectTransform.sizeDelta = new Vector2(600, 30);
 
-        bool ok = SessionManager.Instance != null && await SessionManager.Instance.InitAsync();
+        SessionManager sessionManager = SessionManager.Instance;
+        bool ok = sessionManager != null && await sessionManager.InitAsync();
         List<ScoreEntry> global = ok ? await HighScores.GlobalAsync() : new List<ScoreEntry>();
         if (this == null || scoreContent == null) return;
 
-        status.text = global.Count > 0 ? "" : "Global scores unavailable (offline or not set up).";
+        status.text = global.Count > 0 ? "" :
+            !ok ? "Global scores unavailable: " + (sessionManager != null && !string.IsNullOrEmpty(sessionManager.LastError)
+                ? sessionManager.LastError : "Unity Gaming Services could not initialize.") :
+            !string.IsNullOrEmpty(HighScores.LastError) ? "Global scores unavailable: " + HighScores.LastError :
+            "No global scores yet.";
+        status.rectTransform.sizeDelta = new Vector2(600, 60);
+        status.fontSize = 18;
         if (global.Count > 0) AddScoreRows("Global top 5", global.GetRange(0, Mathf.Min(5, global.Count)));
 
         UIKit.MakeButton(scoreContent, "Back", UIKit.Peach, () => { scores.SetActive(false); main.SetActive(true); }, new Vector2(240, 56));

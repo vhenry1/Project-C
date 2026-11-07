@@ -1,15 +1,20 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
-/// Menu scene: Start, High Scores and Credits menus.
+/// Menu scene: Start, character customization, High Scores and Credits menus.
 /// Built automatically by ProjectCRuntime, so nothing needs wiring in the scene.
 /// </summary>
 public class MenuSceneUI : MonoBehaviour
 {
-    private GameObject main, credits, scores;
+    private GameObject main, credits, scores, customization;
     private RectTransform scoreContent;
+    private Image characterPreview;
+    private Sprite characterPreviewSprite;
+    private readonly List<Outline> hairOutlines = new List<Outline>();
+    private readonly List<Outline> clothesOutlines = new List<Outline>();
 
     private const string CreditsText =
         "<b>Game by Jenna</b> - Co-op Farm Defense\n\n" +
@@ -27,11 +32,12 @@ public class MenuSceneUI : MonoBehaviour
         AudioManager.Music(false);
 
         RectTransform m = UIKit.MakePanel(canvas.transform, "Co-op Farm Defense", new Vector2(520, 520), out main);
-        UIKit.MakeButton(m, "Play", UIKit.Green, () => UnityEngine.SceneManagement.SceneManager.LoadScene("Lobby"), new Vector2(380, 70));
-        UIKit.MakeButton(m, "High Scores", UIKit.Gold, ShowScores, new Vector2(380, 70));
-        UIKit.MakeButton(m, "Credits", UIKit.Sky, () => { main.SetActive(false); credits.SetActive(true); }, new Vector2(380, 70));
+        UIKit.MakeButton(m, "Play", UIKit.Green, () => UnityEngine.SceneManagement.SceneManager.LoadScene("Lobby"), new Vector2(380, 56));
+        UIKit.MakeButton(m, "Customize Character", UIKit.Sky, ShowCustomization, new Vector2(380, 56));
+        UIKit.MakeButton(m, "High Scores", UIKit.Gold, ShowScores, new Vector2(380, 56));
+        UIKit.MakeButton(m, "Credits", UIKit.Sky, () => { main.SetActive(false); credits.SetActive(true); }, new Vector2(380, 56));
 #if !UNITY_WEBGL
-        UIKit.MakeButton(m, "Quit", UIKit.Peach, Application.Quit, new Vector2(380, 70));
+        UIKit.MakeButton(m, "Quit", UIKit.Peach, Application.Quit, new Vector2(380, 56));
 #endif
 
         RectTransform c = UIKit.MakePanel(canvas.transform, "Credits", new Vector2(900, 560), out credits);
@@ -42,6 +48,121 @@ public class MenuSceneUI : MonoBehaviour
 
         scoreContent = UIKit.MakePanel(canvas.transform, "High Scores", new Vector2(700, 640), out scores);
         scores.SetActive(false);
+
+        RectTransform appearance = UIKit.MakePanel(canvas.transform, "Customize Your Farmer", new Vector2(820, 600), out customization);
+        TMP_Text appearanceHint = UIKit.Label(appearance, "Colors save automatically and are visible to other players.", 18,
+            UIKit.Ink, TextAlignmentOptions.Center, FontStyles.Italic);
+        appearanceHint.rectTransform.sizeDelta = new Vector2(700, 30);
+        TMP_Text previewLabel = UIKit.Label(appearance, "Your Farmer", 24, UIKit.Ink);
+        previewLabel.rectTransform.sizeDelta = new Vector2(700, 30);
+        characterPreview = UIKit.Box(appearance, "CharacterPreview", Color.white, false);
+        characterPreview.rectTransform.sizeDelta = new Vector2(150, 155);
+        characterPreview.type = Image.Type.Simple;
+        characterPreview.preserveAspect = true;
+        characterPreview.raycastTarget = false;
+        LayoutElement previewLayout = characterPreview.gameObject.AddComponent<LayoutElement>();
+        previewLayout.preferredWidth = 150;
+        previewLayout.preferredHeight = 155;
+
+        GameObject previewPrefab = Resources.Load<GameObject>("CharacterPreview");
+        SpriteRenderer previewRenderer = previewPrefab != null ? previewPrefab.GetComponent<SpriteRenderer>() : null;
+        if (previewRenderer == null || previewRenderer.sprite == null)
+        {
+            Debug.LogError("Project C: character preview sprite is missing from Resources/CharacterPreview.prefab.");
+        }
+        else
+        {
+            characterPreviewSprite = previewRenderer.sprite;
+        }
+
+        AddColorRow(appearance, "Hair", GameSettings.HairColorNames, GameSettings.HairColors,
+            hairOutlines, GameSettings.SetHairColor);
+        AddColorRow(appearance, "Clothes", GameSettings.ClothesColorNames, GameSettings.ClothesColors,
+            clothesOutlines, GameSettings.SetClothesColor);
+        UIKit.MakeButton(appearance, "Back", UIKit.Peach, () =>
+        {
+            customization.SetActive(false);
+            main.SetActive(true);
+        }, new Vector2(240, 56));
+        customization.SetActive(false);
+        RefreshColorSelection();
+        RefreshCharacterPreview();
+    }
+
+    private void ShowCustomization()
+    {
+        main.SetActive(false);
+        customization.SetActive(true);
+        RefreshColorSelection();
+    }
+
+    private void AddColorRow(Transform parent, string title, string[] names, Color[] colors,
+        List<Outline> outlines, System.Action<int> onSelect)
+    {
+        RectTransform row = UIKit.Rect(title + "Colors", parent);
+        row.sizeDelta = new Vector2(700, 70);
+        LayoutElement rowLayout = row.gameObject.AddComponent<LayoutElement>();
+        rowLayout.preferredWidth = 700;
+        rowLayout.preferredHeight = 70;
+
+        HorizontalLayoutGroup layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = 8;
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        TMP_Text label = UIKit.Label(row, title, 24, UIKit.Ink, TextAlignmentOptions.MidlineLeft);
+        label.rectTransform.sizeDelta = new Vector2(120, 56);
+
+        for (int i = 0; i < names.Length; i++)
+        {
+            int colorIndex = i;
+            Image swatch = UIKit.Box(row, title + "_" + names[i], colors[i]);
+            swatch.rectTransform.sizeDelta = new Vector2(100, 54);
+            Button button = swatch.gameObject.AddComponent<Button>();
+            button.targetGraphic = swatch;
+
+            TMP_Text name = UIKit.Label(swatch.transform, names[i], 16,
+                colors[i].grayscale < 0.45f ? Color.white : UIKit.Ink);
+            UIKit.Fill(name.rectTransform);
+
+            Outline outline = swatch.gameObject.AddComponent<Outline>();
+            outline.effectColor = UIKit.Ink;
+            outline.effectDistance = new Vector2(3, -3);
+            outline.enabled = false;
+            outlines.Add(outline);
+
+            button.onClick.AddListener(() =>
+            {
+                AudioManager.Play("click", 0.5f);
+                onSelect(colorIndex);
+                RefreshColorSelection();
+                RefreshCharacterPreview();
+            });
+        }
+    }
+
+    private void RefreshCharacterPreview()
+    {
+        if (characterPreview == null || characterPreviewSprite == null) return;
+        characterPreview.sprite = PlayerController.CreateCustomizedSprite(
+            characterPreviewSprite, GameSettings.HairColorIndex, GameSettings.ClothesColorIndex);
+    }
+
+    private void RefreshColorSelection()
+    {
+        SetSelectedOutline(hairOutlines, GameSettings.HairColorIndex);
+        SetSelectedOutline(clothesOutlines, GameSettings.ClothesColorIndex);
+    }
+
+    private static void SetSelectedOutline(List<Outline> outlines, int selected)
+    {
+        for (int i = 0; i < outlines.Count; i++)
+        {
+            if (outlines[i] != null) outlines[i].enabled = i == selected;
+        }
     }
 
     private async void ShowScores()

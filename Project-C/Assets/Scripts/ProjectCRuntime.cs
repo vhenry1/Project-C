@@ -56,10 +56,21 @@ public class ProjectCRuntime : MonoBehaviour
                 new GameObject("LobbyUI").AddComponent<LobbyUI>();
                 break;
             case "Farm":
+                ClearOtherSceneUi(scene);
                 new GameObject("FarmUI").AddComponent<FarmUI>();
                 Camera cam = Camera.main;
                 if (cam != null && cam.GetComponent<CameraFollow2D>() == null) cam.gameObject.AddComponent<CameraFollow2D>();
                 break;
+        }
+    }
+
+    private static void ClearOtherSceneUi(Scene scene)
+    {
+        foreach (Canvas canvas in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+        {
+            if (canvas.name != "ProjectC_UI" || canvas.gameObject.scene == scene) continue;
+            canvas.gameObject.SetActive(false);
+            Destroy(canvas.gameObject);
         }
     }
 

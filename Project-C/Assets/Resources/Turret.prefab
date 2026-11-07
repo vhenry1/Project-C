@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 6500474872236856966}
   - component: {fileID: 6495314022043525382}
   - component: {fileID: 1495740507702409193}
+  - component: {fileID: 596447655183260989}
   - component: {fileID: 6937795896945742082}
   m_Layer: 0
   m_Name: Turret
@@ -184,3 +185,27 @@ MonoBehaviour:
   range: 6
   interval: 0.9
   damage: 2
+--- !u!114 &596447655183260989
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2241838488539536094}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2d1af4488462884c91b4e5bd59c7b08, type: 3}
+  m_Name: ""
+  m_EditorClassIdentifier: Assembly-CSharp::Health
+  ShowTopMostFoldoutHeaderGroup: 1
+  maxHealth: 12
+  Current:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 12
+  Max:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 12

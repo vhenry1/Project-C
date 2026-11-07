@@ -345,6 +345,8 @@ public class FarmUI : MonoBehaviour
         if (craft.activeSelf)
         {
             string sig = w.Money.Value + "|" + w.Scrap.Value;
+            foreach (CraftItem item in Catalog.Craft)
+                sig += "|" + w.CountInWorld(item.PrefabName);
             if (sig != craftSig) { craftSig = sig; RebuildCraft(w); }
         }
     }
@@ -380,8 +382,12 @@ public class FarmUI : MonoBehaviour
 
         foreach (CraftItem item in Catalog.Craft)
         {
+            int count = w.CountInWorld(item.PrefabName);
+            bool maxed = count >= item.MaxInWorld;
             string cost = (item.Money > 0 ? "$" + item.Money + " + " : "") + item.Scrap + " scrap";
-            string label = "Build " + item.Name + " - " + cost + "\n<size=18>" + item.Desc + "</size>";
+            string availability = maxed ? "MAX" : count + "/" + item.MaxInWorld + " - " + cost;
+            string label = "Build " + item.Name + " - " + availability +
+                           "\n<size=18>" + item.Desc + "</size>";
             Button b = UIKit.MakeButton(craftContent, label, UIKit.Sky, null, new Vector2(640, 72));
             int id = item.Id;
             b.onClick.AddListener(() =>
@@ -390,7 +396,7 @@ public class FarmUI : MonoBehaviour
                 SpriteRenderer sr = nm.LocalClient.PlayerObject.GetComponent<SpriteRenderer>();
                 TeamWallet.Instance.CraftServerRpc(id, sr != null && sr.flipX ? -1f : 1f);
             });
-            b.interactable = w.Money.Value >= item.Money && w.Scrap.Value >= item.Scrap;
+            b.interactable = !maxed && w.Money.Value >= item.Money && w.Scrap.Value >= item.Scrap;
         }
         UIKit.MakeButton(craftContent, "Close", UIKit.Peach, () => SetOpen(craft, false), new Vector2(240, 56));
     }

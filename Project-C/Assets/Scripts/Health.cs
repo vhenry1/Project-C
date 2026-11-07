@@ -3,7 +3,7 @@ using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
-/// Shared health for players, monsters and fences. The host changes it;
+/// Shared health for players, monsters and farm defenses. The host changes it;
 /// every client sees the same value through NetworkVariables.
 /// </summary>
 public class Health : NetworkBehaviour

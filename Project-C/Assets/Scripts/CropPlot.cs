@@ -12,8 +12,8 @@ public class CropPlot : NetworkBehaviour
     public static readonly List<CropPlot> All = new List<CropPlot>();
 
     public Sprite[] stageSprites;          // planted stages: grass, flower, ripe wheat
-    public float secondsPerStage = 10f;
-    public int baseHarvestValue = 10;
+    public float secondsPerStage = 25f;
+    public int baseHarvestValue = 5;
 
     [SerializeField] private SpriteRenderer cropRenderer;
     private readonly NetworkVariable<int> stage = new NetworkVariable<int>(0);

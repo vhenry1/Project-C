@@ -26,7 +26,7 @@ public class TeamWallet : NetworkBehaviour
     public NetworkVariable<int> YieldLevel = new NetworkVariable<int>(0);
 
     public float GrowthMultiplier { get { return Mathf.Pow(0.85f, GrowthLevel.Value); } }
-    public int YieldBonus { get { return YieldLevel.Value * 3; } }
+    public int YieldBonus { get { return YieldLevel.Value * 1; } }
 
     public override void OnNetworkSpawn()
     {
@@ -130,7 +130,7 @@ public class TeamWallet : NetworkBehaviour
         }
         else if (item.PrefabName == "Scarecrow")
         {
-            p = Vector3.zero;
+            p = Vector3.one;
         }
         else
         {
@@ -243,7 +243,7 @@ public class TeamWallet : NetworkBehaviour
         return true;
     }
 
-    private int CountInWorld(string prefabName)
+    public int CountInWorld(string prefabName)
     {
         if (prefabName == "Fence") return FindObjectsByType<Fence>(FindObjectsSortMode.None).Length;
         if (prefabName == "Turret") return FindObjectsByType<Turret>(FindObjectsSortMode.None).Length;

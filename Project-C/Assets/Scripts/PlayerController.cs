@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Unity.Netcode;
@@ -21,19 +22,46 @@ public class PlayerController : NetworkBehaviour
     private int walkingSpriteIndex;
     private float spriteTimer;
     private Sprite[] attackSprites;
+    private Sprite currentSourceSprite;
     private float attackAnimationStart;
     private const float AttackFrameDuration = 0.05f;
+    private static readonly Dictionary<string, Sprite> customizedSprites = new Dictionary<string, Sprite>();
+    private static readonly HashSet<int> unreadableTextureWarnings = new HashSet<int>();
 
     // Owner writes, everyone reads, so remote players animate correctly.
     private readonly NetworkVariable<bool> facingLeft = new NetworkVariable<bool>(
         false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
     private readonly NetworkVariable<bool> isMoving = new NetworkVariable<bool>(
         false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    private readonly NetworkVariable<int> hairColorIndex = new NetworkVariable<int>(
+        0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    private readonly NetworkVariable<int> clothesColorIndex = new NetworkVariable<int>(
+        0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     private void Awake()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
         health = GetComponent<Health>();
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        hairColorIndex.OnValueChanged += OnAppearanceChanged;
+        clothesColorIndex.OnValueChanged += OnAppearanceChanged;
+
+        if (IsOwner)
+        {
+            hairColorIndex.Value = GameSettings.HairColorIndex;
+            clothesColorIndex.Value = GameSettings.ClothesColorIndex;
+        }
+
+        ApplyAppearance();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        hairColorIndex.OnValueChanged -= OnAppearanceChanged;
+        clothesColorIndex.OnValueChanged -= OnAppearanceChanged;
     }
 
     private void Update()
@@ -113,11 +141,11 @@ public class PlayerController : NetworkBehaviour
 
             if (idleSprite != null)
             {
-                spriteRenderer.sprite = idleSprite;
+                SetPlayerSprite(idleSprite);
             }
             else if (walkingSprites != null && walkingSprites.Length > 0)
             {
-                spriteRenderer.sprite = walkingSprites[0];
+                SetPlayerSprite(walkingSprites[0]);
             }
 
             return;
@@ -139,13 +167,115 @@ public class PlayerController : NetworkBehaviour
             }
         }
 
-        spriteRenderer.sprite = walkingSprites[walkingSpriteIndex];
+        SetPlayerSprite(walkingSprites[walkingSpriteIndex]);
     }
 
     public void PlayAttackAnimation(Sprite[] sprites)
     {
         if (sprites == null || sprites.Length == 0) return;
-        attackSprites = sprites;
+        attackSprites = new Sprite[sprites.Length];
+        for (int i = 0; i < sprites.Length; i++)
+        {
+            attackSprites[i] = CustomizeSprite(sprites[i]);
+        }
         attackAnimationStart = Time.time;
+    }
+
+    private void OnAppearanceChanged(int previous, int current)
+    {
+        ApplyAppearance();
+    }
+
+    private void ApplyAppearance()
+    {
+        if (spriteRenderer != null && currentSourceSprite != null)
+        {
+            spriteRenderer.sprite = CustomizeSprite(currentSourceSprite);
+        }
+    }
+
+    private void SetPlayerSprite(Sprite source)
+    {
+        currentSourceSprite = source;
+        spriteRenderer.sprite = CustomizeSprite(source);
+    }
+
+    private Sprite CustomizeSprite(Sprite source)
+    {
+        return CreateCustomizedSprite(source, hairColorIndex.Value, clothesColorIndex.Value);
+    }
+
+    public static Sprite CreateCustomizedSprite(Sprite source, int hairColorIndex, int clothesColorIndex)
+    {
+        if (source == null) return null;
+        if (!source.texture.isReadable)
+        {
+            if (unreadableTextureWarnings.Add(source.texture.GetInstanceID()))
+            {
+                Debug.LogError("Player customization needs the player sprite texture's Read/Write setting enabled.", source);
+            }
+            return source;
+        }
+
+        int hair = Mathf.Clamp(hairColorIndex, 0, GameSettings.HairColors.Length - 1);
+        int clothes = Mathf.Clamp(clothesColorIndex, 0, GameSettings.ClothesColors.Length - 1);
+        string key = source.GetInstanceID() + ":" + hair + ":" + clothes;
+        Sprite cached;
+        if (customizedSprites.TryGetValue(key, out cached)) return cached;
+
+        Rect rect = source.rect;
+        int width = Mathf.RoundToInt(rect.width);
+        int height = Mathf.RoundToInt(rect.height);
+        Color[] pixels = source.texture.GetPixels(
+            Mathf.RoundToInt(rect.x), Mathf.RoundToInt(rect.y), width, height);
+
+        for (int y = 0; y < height; y++)
+        {
+            float verticalPosition = (float)y / height;
+            for (int x = 0; x < width; x++)
+            {
+                int pixelIndex = y * width + x;
+                Color pixel = pixels[pixelIndex];
+                if (pixel.a == 0f) continue;
+
+                float hue, saturation, brightness;
+                Color.RGBToHSV(pixel, out hue, out saturation, out brightness);
+
+                if (verticalPosition >= 0.45f && saturation >= 0.2f &&
+                    hue <= 0.15f && brightness >= 0.08f && brightness <= 0.72f)
+                {
+                    pixels[pixelIndex] = ShadeColor(GameSettings.HairColors[hair], brightness, 0.4f, pixel.a);
+                }
+                else if ((verticalPosition <= 0.28f && saturation <= 0.24f &&
+                    brightness >= 0.42f && brightness <= 0.82f) ||
+                    (verticalPosition <= 0.62f && saturation >= 0.3f &&
+                    hue >= 0.68f && hue <= 0.92f && brightness >= 0.16f && brightness <= 0.65f))
+                {
+                    pixels[pixelIndex] = ShadeColor(GameSettings.ClothesColors[clothes], brightness, 0.65f, pixel.a);
+                }
+            }
+        }
+
+        Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        texture.filterMode = source.texture.filterMode;
+        texture.SetPixels(pixels);
+        texture.Apply(false, true);
+
+        Vector2 normalizedPivot = new Vector2(source.pivot.x / width, source.pivot.y / height);
+        Sprite customized = Sprite.Create(texture, new Rect(0, 0, width, height), normalizedPivot,
+            source.pixelsPerUnit, 0, SpriteMeshType.FullRect, source.border);
+        customized.name = source.name + "_Hair" + hair + "_Clothes" + clothes;
+        customizedSprites.Add(key, customized);
+        return customized;
+    }
+
+    private static Color ShadeColor(Color color, float brightness, float sourceBrightness, float alpha)
+    {
+        float shade = Mathf.Clamp(brightness / sourceBrightness, 0.55f, 1.35f);
+        return new Color(
+            Mathf.Clamp01(color.r * shade),
+            Mathf.Clamp01(color.g * shade),
+            Mathf.Clamp01(color.b * shade),
+            alpha);
     }
 }

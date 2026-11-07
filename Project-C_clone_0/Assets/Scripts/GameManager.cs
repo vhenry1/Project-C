@@ -81,8 +81,7 @@ public class GameManager : NetworkBehaviour
             if (c.PlayerObject == null) continue;
             Health h = c.PlayerObject.GetComponent<Health>();
             if (h == null) continue;
-            if (h.IsDead) h.Revive(Mathf.Max(1, h.Max.Value / 2));
-            else h.Heal(h.Max.Value / 2);
+            
         }
         DawnClientRpc();
     }

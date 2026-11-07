@@ -32,11 +32,11 @@ public static class Catalog
 
     public static readonly ShopItem[] Shop =
     {
-        new ShopItem { Id = SwordUpgrade,      Name = "Sharper Sword", Desc = "+2 damage for everyone",   BaseMoney = 30, MaxLevel = 5 },
-        new ShopItem { Id = SeedUpgrade,       Name = "Better Seeds",  Desc = "Crops grow 15% faster",    BaseMoney = 25, MaxLevel = 5 },
-        new ShopItem { Id = FertilizerUpgrade, Name = "Fertilizer",    Desc = "+3 money per harvest",     BaseMoney = 25, MaxLevel = 5 },
-        new ShopItem { Id = Bandages,          Name = "Bandages",      Desc = "Heal all living players",  BaseMoney = 20, MaxLevel = 0 },
-        new ShopItem { Id = ScrapBundle,       Name = "Scrap Bundle",  Desc = "Get 3 scrap for crafting", BaseMoney = 15, MaxLevel = 0 },
+        new ShopItem { Id = SwordUpgrade,      Name = "Sharper Sword", Desc = "+2 damage for everyone",   BaseMoney = 50, MaxLevel = 5 },
+        new ShopItem { Id = SeedUpgrade,       Name = "Better Seeds",  Desc = "Crops grow 15% faster",    BaseMoney = 35, MaxLevel = 5 },
+        new ShopItem { Id = FertilizerUpgrade, Name = "Fertilizer",    Desc = "+1 money per harvest",     BaseMoney = 40, MaxLevel = 10 },
+        new ShopItem { Id = Bandages,          Name = "Bandages",      Desc = "Heal all living players",  BaseMoney = 25, MaxLevel = 0 },
+        new ShopItem { Id = ScrapBundle,       Name = "Scrap Bundle",  Desc = "Get 3 scrap for crafting", BaseMoney = 25, MaxLevel = 0 },
     };
 
     public static readonly CraftItem[] Craft =

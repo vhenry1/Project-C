@@ -4,7 +4,8 @@ using UnityEngine;
 
 /// <summary>
 /// Night enemy. Runs on the host only: chases the nearest living player, otherwise tramples crops.
-/// Chews through fences that block the way. Drops money and scrap when it dies.
+/// Attacks nearby players and defenses, chews through fences, and tramples crops.
+/// Drops money and scrap when it dies.
 /// Needs: NetworkObject, NetworkTransform, Rigidbody2D (gravity 0), Collider2D, Health.
 /// </summary>
 [RequireComponent(typeof(Health))]
@@ -30,6 +31,7 @@ public class Monster : NetworkBehaviour
     private float nextFenceHit;
     private float animationStartTime;
     private float scaredUntil;
+    private Scarecrow scaredScarecrow;
 
     private void Awake()
     {
@@ -92,10 +94,14 @@ public class Monster : NetworkBehaviour
         if (scarecrow != null && scarecrow.IsSpawned)
         {
             Vector2 away = pos - (Vector2)scarecrow.transform.position;
-            if (Time.time >= scaredUntil && away.sqrMagnitude <= Scarecrow.EncounterRadius * Scarecrow.EncounterRadius)
+            if (scaredScarecrow != scarecrow &&
+                away.sqrMagnitude <= Scarecrow.EncounterRadius * Scarecrow.EncounterRadius)
+            {
+                scaredScarecrow = scarecrow;
                 scaredUntil = Time.time + Scarecrow.FearDuration;
+            }
 
-            if (Time.time < scaredUntil)
+            if (scaredScarecrow == scarecrow && Time.time < scaredUntil)
             {
                 if (away.sqrMagnitude < 0.0001f) away = Vector2.right;
                 rb.linearVelocity = away.normalized * speed;
@@ -103,22 +109,24 @@ public class Monster : NetworkBehaviour
             }
         }
 
-        Health targetPlayer = NearestPlayer(pos, aggroRange);
-        CropPlot targetCrop = targetPlayer == null ? NearestCrop(pos) : null;
+        Health target = NearestCombatTarget(pos, aggroRange);
+        CropPlot targetCrop = target == null ? NearestCrop(pos) : null;
 
         Vector2 targetPos;
-        if (targetPlayer != null) targetPos = targetPlayer.transform.position;
+        if (target != null) targetPos = target.transform.position;
         else if (targetCrop != null) targetPos = targetCrop.transform.position;
         else { rb.linearVelocity = Vector2.zero; return; }
 
         Vector2 to = targetPos - pos;
         float dist = to.magnitude;
-        rb.linearVelocity = dist > 0.7f ? to.normalized * speed : Vector2.zero;
+        bool isDefense = target != null &&
+            (target.GetComponent<Turret>() != null || target.GetComponent<Scarecrow>() != null);
+        rb.linearVelocity = dist > (isDefense ? 0.9f : 0.7f) ? to.normalized * speed : Vector2.zero;
 
-        if (dist <= 1.0f && Time.time >= nextHit)
+        if (dist <= (isDefense ? 1.5f : 1.0f) && Time.time >= nextHit)
         {
             nextHit = Time.time + attackInterval;
-            if (targetPlayer != null) targetPlayer.TakeDamage(contactDamage);
+            if (target != null) target.TakeDamage(isDefense ? contactDamage * 2 : contactDamage);
             else if (targetCrop != null) targetCrop.Trample();
         }
     }
@@ -158,7 +166,7 @@ public class Monster : NetworkBehaviour
         }
     }
 
-    private Health NearestPlayer(Vector2 from, float range)
+    private Health NearestCombatTarget(Vector2 from, float range)
     {
         Health best = null;
         float bestD = range * range;
@@ -170,6 +178,27 @@ public class Monster : NetworkBehaviour
             float d = ((Vector2)h.transform.position - from).sqrMagnitude;
             if (d < bestD) { bestD = d; best = h; }
         }
+
+        foreach (Turret turret in Turret.All)
+        {
+            if (turret == null || !turret.IsSpawned) continue;
+            Health h = turret.GetComponent<Health>();
+            if (h == null || h.IsDead) continue;
+            float d = ((Vector2)turret.transform.position - from).sqrMagnitude;
+            if (d < bestD) { bestD = d; best = h; }
+        }
+
+        Scarecrow scarecrow = Scarecrow.Active;
+        if (scarecrow != null && scarecrow.IsSpawned)
+        {
+            Health h = scarecrow.GetComponent<Health>();
+            if (h != null && !h.IsDead)
+            {
+                float d = ((Vector2)scarecrow.transform.position - from).sqrMagnitude;
+                if (d < bestD) best = h;
+            }
+        }
+
         return best;
     }
 
